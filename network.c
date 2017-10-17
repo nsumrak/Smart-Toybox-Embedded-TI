@@ -25,9 +25,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-// Simplelink includes
-#include "simplelink.h"
-
 // driverlib includes
 #include "hw_types.h"
 #include "rom.h"
@@ -45,6 +42,9 @@
 #include "button.h"
 #include "led.h"
 #include "watchdog.h"
+
+// Simplelink includes
+#include "simplelink.h"
 
 static volatile unsigned long  status = 0;//SimpleLink Status
 static unsigned long ip = 0; //Device IP address

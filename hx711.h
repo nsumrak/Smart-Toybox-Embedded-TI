@@ -18,11 +18,13 @@
 
 #pragma once
 
+extern long WEIGHT_THRESHOLD;
 extern long SCALE_OFFSET;
 extern long SCALE_FACTOR;
 extern signed char SCALE_ORIENTATION;
 
 static long previous = 0;
+extern char g_hx711calibration;
 
 void hx711_init();
 

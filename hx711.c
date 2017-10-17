@@ -22,21 +22,22 @@
 #include "debug.h"
 #include "hx711.h"
 #include "settings.h"
+#include "led.h"
 
 // gain: 128 or 64 for channel A; channel B works with 32 gain factor only
 // channel selection is made by passing the appropriate gain
 #define GAIN 128
 #define GAIN_BITS 1 // 1 bit for gain 128, 3 bits for 64, 2 bits for 32
 
-#define CALIBRATION
-
 #define CALIB_STEPS	80
+#define CALIB_STABILIZATION_STEPS	30
 #define CALIB_WEIGHT 1510
 
-long WEIGHT_THRESHOLD = 96;
-long SCALE_OFFSET = 0xffff00d5;
-long SCALE_FACTOR = 110;
-signed char SCALE_ORIENTATION = -1;
+long WEIGHT_THRESHOLD = 0;
+long SCALE_OFFSET = 0;
+long SCALE_FACTOR = 0;
+signed char SCALE_ORIENTATION = 0;
+char g_hx711calibration = 0;
 
 // writes value to clock gpio
 inline void write_clock(BOOL val)
@@ -90,8 +91,6 @@ long hx711_read() {
 
 static int first = 0;
 
-#ifdef CALIBRATION
-
 long scalemin, scalemax;
 static void ScaleCalibIntReq()
 {
@@ -100,36 +99,46 @@ static void ScaleCalibIntReq()
 			UART_PRINT("hx711 calibration\n\r");
 			scalemin = scalemax = hx711_read();
 			first = 1;
+			gpio_clear_irq(GPIO_HX_DATA);
 			return;
 		}
 		long val = hx711_read();
+		UART_PRINT("%d: read val %x\n\r",first,val);
 		if (val < scalemin) scalemin = val;
 		else if (val > scalemax) scalemax = val;
 		first++;
+		gpio_clear_irq(GPIO_HX_DATA);
 	}
 	else {
 		int cnt = first - CALIB_STEPS;
 		if (!cnt) {
 			long diff = (scalemax - scalemin) / 2;
-			WEIGHT_THRESHOLD = labs(diff);
+			WEIGHT_THRESHOLD = labs(diff)+1;
 			SCALE_OFFSET = scalemax - diff;
-			first++;
+			UART_PRINT("min: %x max: %x diff: %d scaleoffset=%x\n\r",scalemin,scalemax,diff,SCALE_OFFSET);
 			UART_PRINT("Please put %d gram weight on scale...\n\r", CALIB_WEIGHT);
 			first++;
-			return;
 		}
 		long val = hx711_read();
-		if (cnt == 1) {
+		gpio_clear_irq(GPIO_HX_DATA);
+		if(!cnt) return;
+		if(cnt == 1) {
 			// waiting for weight
-			if (labs(val - SCALE_OFFSET) < 2 * WEIGHT_THRESHOLD) return;
-			scalemin = scalemax = hx711_read();
+			//UART_PRINT("waiting\n\r");
+			if (labs(val - SCALE_OFFSET) < ((CALIB_WEIGHT/10) * WEIGHT_THRESHOLD)) return;
+			scalemin = scalemax = val;
+			UART_PRINT("weight detected\n\r");
 			first++;
 			return;
 		}
 		first++;
-		if (cnt < 20) return; //wait to stabilize
-		cnt -= 20;
+		if (cnt < CALIB_STABILIZATION_STEPS) {
+			UART_PRINT("stabilizing cnt=%d\n\r",cnt);
+			return; //wait to stabilize
+		}
+		cnt -= CALIB_STABILIZATION_STEPS;
 		if (cnt < CALIB_STEPS) {
+			UART_PRINT("%d: read val %x\n\r",cnt,val);
 			if (val < scalemin) scalemin = val;
 			else if (val > scalemax) scalemax = val;
 			return;
@@ -137,19 +146,24 @@ static void ScaleCalibIntReq()
 		if (cnt == CALIB_STEPS) {
 			long scalehigh = scalemax - ((scalemax - scalemin) / 2);
 			long diff = scalehigh - SCALE_OFFSET;
+			UART_PRINT("min: %x max: %x diff: %d scaleh=%x\n\r",scalemin,scalemax,diff,scalehigh);
 			if (diff < 0) {
 				SCALE_ORIENTATION = -1;
 				diff = -diff;
 			}
 			else SCALE_ORIENTATION = 1;
 			SCALE_FACTOR = diff / CALIB_WEIGHT;
-			UART_PRINT("calibrated scale settings:\n\rscaleoffset=%d\n\rscalefactor=%d\n\rscaleorientation=%d\n\rscalethreshold=%d\n\r------\n\rProcess finished\n\r", SCALE_OFFSET, SCALE_FACTOR, SCALE_ORIENTATION, WEIGHT_THRESHOLD);
+			UART_PRINT("\n\r\n\rCALIBRATION FINISHED!\n\rWrite down these settings:\n\r------\n\r");
+			UART_PRINT("scaleoffset=%d\n\rscalefactor=%d\n\rscaleorientation=%d\n\rscalethreshold=%d\n\r------\n\rRemove weight to write settings and reboot to normal operation\n\r", SCALE_OFFSET, SCALE_FACTOR, SCALE_ORIENTATION, WEIGHT_THRESHOLD);
+		}
+		if(cnt > CALIB_STEPS) {
+			first--;
+			if (labs(val - SCALE_OFFSET) > ((CALIB_WEIGHT/10) * WEIGHT_THRESHOLD)) return;
+			evqueue_write(EV_CALIBRATION_FINISHED,0,0);
 		}
 		// ended
 	}
 }
-
-#else //calibration
 
 static void ScaleIntReq()
 {
@@ -171,8 +185,6 @@ static void ScaleIntReq()
 	gpio_clear_irq(GPIO_HX_DATA);
 }
 
-#endif
-
 void hx711_init()
 {
 	gpio_mode(GPIO_HX_DATA, GPIO_MODE_INPUT);
@@ -181,17 +193,20 @@ void hx711_init()
 	power_down();
 	power_up();
 
-    // set interrupt for data pin
-#ifdef CALIBRATION
-	gpio_attach_interrupt(GPIO_HX_DATA, ScaleCalibIntReq, GPIO_IRQMODE_FALLING_EDGE);
-#else
-	// read offset, factor & orientation from settings
-	SCALE_OFFSET = settings_get_int("scaleoffset", SCALE_OFFSET);
-	SCALE_FACTOR = settings_get_int("scalefactor", SCALE_FACTOR);
-	SCALE_ORIENTATION = settings_get_int("scaleorientation", SCALE_ORIENTATION);
-	WEIGHT_THRESHOLD = settings_get_int("scalethreshold", WEIGHT_THRESHOLD);
-	UART_PRINT("read hx711 settings:\n\rscaleoffset=%d\n\rscalefactor=%d\n\rscaleorientation=%d\n\rscalethreshold=%d\n\r", SCALE_OFFSET, SCALE_FACTOR, SCALE_ORIENTATION, WEIGHT_THRESHOLD);
+	SCALE_OFFSET = settings_get_int("scaleoffset", 0);
+	SCALE_FACTOR = settings_get_int("scalefactor", 0);
+	SCALE_ORIENTATION = settings_get_int("scaleorientation", 0);
+	WEIGHT_THRESHOLD = settings_get_int("scalethreshold", 0);
 
-	gpio_attach_interrupt(GPIO_HX_DATA, ScaleIntReq, GPIO_IRQMODE_FALLING_EDGE);
-#endif
+	if(!SCALE_OFFSET && !SCALE_FACTOR && !SCALE_ORIENTATION && !WEIGHT_THRESHOLD) {
+		g_hx711calibration = 1;
+		led_blink_cnt(LED_YELLOW, 255);
+		UART_PRINT("hx711 calibration\n\r");
+	    // set interrupt for data pin to clibration
+		gpio_attach_interrupt(GPIO_HX_DATA, ScaleCalibIntReq, GPIO_IRQMODE_FALLING_EDGE);
+	} else {
+		UART_PRINT("read hx711 settings:\n\rscaleoffset=%d\n\rscalefactor=%d\n\rscaleorientation=%d\n\rscalethreshold=%d\n\r", SCALE_OFFSET, SCALE_FACTOR, SCALE_ORIENTATION, WEIGHT_THRESHOLD);
+	    // set interrupt for data pin
+		gpio_attach_interrupt(GPIO_HX_DATA, ScaleIntReq, GPIO_IRQMODE_FALLING_EDGE);
+	}
 }

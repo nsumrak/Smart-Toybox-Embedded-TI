@@ -17,6 +17,7 @@
 //	 with this program; if not, write to the Free Software Foundation, Inc.,
 //	 51 Franklin Street, Fifth Floor, Boston, MA 02110 - 1301 USA.
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -54,7 +55,7 @@
 #endif
 
 
-static _u32 smarttoyboxip;
+//static _u32 smarttoyboxip;
 
 void print_client_side(ConnDesc *cd, char *buf, int len)
 {
@@ -108,6 +109,7 @@ int main()
 	}
 
 	network_async_finish();
+	//sl_FsDel(SETTINGS_FILE,0);
 	hx711_init();
 	file_init(); // note: should be called after simplelink init
 	audioplay_init();
@@ -126,9 +128,11 @@ int main()
 			case EV_ACCEL_TAP:
 				UART_PRINT("accel tap\n\r");
 				//http_connect(smarttoyboxip, "GET", "smarttoybox.com", "/", 0, 0, print_client_side);
+				if(g_hx711calibration) break;
 				break;
 			case EV_ACCEL_FLAT:
 				UART_PRINT("accel flat: %s\n\r", ev.arg1?"yes":"no");
+				if(g_hx711calibration) break;
 				if (game_started()) {
 					game_process_accel_flat(ev.arg1);
 				} else {
@@ -144,6 +148,7 @@ int main()
 				}
 				break;
 			case EV_BUTTON:
+				if(g_hx711calibration) break;
 				// 0-1s game start/stop
 				// 1-2s get network status
 				// 2-3s fw upgrade
@@ -261,6 +266,15 @@ int main()
 				UART_PRINT("fw upgrade has finished with %s\n\r", ev.arg1? "success" : "error");
 				reboot();
 				break;
+			case EV_CALIBRATION_FINISHED:
+			{
+				char buffek[128];
+				int blen = sprintf(buffek, "scaleoffset=%d\n\rscalefactor=%d\n\rscaleorientation=%d\n\rscalethreshold=%d\n\r",SCALE_OFFSET, SCALE_FACTOR, SCALE_ORIENTATION, WEIGHT_THRESHOLD);
+				settings_write(buffek, blen);
+				UART_PRINT("rebooting...\n\r");
+				reboot();
+				break;
+			}
 			default:
 				UART_PRINT("unhandled event (%d, %d, %d, %d)\n\r", ev.id, ev.arg1, ev.arg2, ev.time);
 			}

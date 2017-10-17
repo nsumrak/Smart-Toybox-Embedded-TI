@@ -27,3 +27,4 @@ inline int settings_get_int(const char *iname, int defaultvalue) {
 	char buf[16];
 	return settings_get(iname, buf, sizeof(buf)) ? atoi(buf) : defaultvalue;
 }
+void settings_write(char *buf, int contentlength);

@@ -216,7 +216,7 @@ static void http_incomming_process(ConnDesc *cd, char *buf, int len)
 							err = sl_FsDel(fn, 0);
 						}
 						if (err) UART_PRINT("file delete error: %d\n\r", err);
-						if(!contentlength || (err = sl_FsOpen(*fn == 't' ? THEME_FILE : fn, FS_MODE_OPEN_CREATE(contentlength, _FS_FILE_OPEN_FLAG_NO_SIGNATURE_TEST), 0, &(cd->fd)))
+						if(!contentlength || (err = sl_FsOpen((const _u8*)(*fn == 't' ? (_u8*)THEME_FILE : (_u8*)fn), FS_MODE_OPEN_CREATE(contentlength, _FS_FILE_OPEN_FLAG_NO_SIGNATURE_TEST), 0, &(cd->fd)))
 										  || (len && (cd->woffs = sl_FsWrite(cd->fd, 0, (_u8*)buf, len)) < len)) {
 							UART_PRINT("file fail! err=%d fd=%d, wrlen=%d len=%d\r\n",err,cd->fd,cd->woffs, len);
 							// fail, send no storage

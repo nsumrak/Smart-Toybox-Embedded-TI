@@ -21,6 +21,7 @@
 #include "platform.h"
 #include "common.h"
 #include "settings.h"
+#include "debug.h"
 
 BOOL settings_get(const char *iname, char *value, int valsize)
 {
@@ -124,4 +125,21 @@ BOOL settings_get(const char *iname, char *value, int valsize)
 		return TRUE;
 	}
 	return FALSE;
+}
+
+void settings_write(char *buf, int contentlength)
+{
+	_i32 fh;
+
+	UART_PRINT("writing settings len: %d '%s'\n\r", contentlength, buf);
+	sl_FsDel(SETTINGS_FILE, 0);
+	short err = sl_FsOpen(SETTINGS_FILE, FS_MODE_OPEN_CREATE(contentlength, _FS_FILE_OPEN_FLAG_NO_SIGNATURE_TEST), 0, &fh);
+	if(err)
+	{
+		UART_PRINT("error (%d) writing settings.ini file\n\r", err);
+		return;
+	}
+	sl_FsWrite(fh, 0, (_u8*)buf, contentlength);
+	sl_FsClose(fh, 0, 0, 0);
+	UART_PRINT("new settings written\n\r");
 }
