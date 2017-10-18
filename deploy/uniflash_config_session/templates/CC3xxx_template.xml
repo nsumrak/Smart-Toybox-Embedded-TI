@@ -417,7 +417,7 @@
       <Type>blob</Type>
       <Storage>SFLASH</Storage>
       <MaxSize>0</MaxSize>
-      <url>${sessionDir}/fileSystem/theme_sr.stb</url>
+      <url>${sessionDir}\fileSystem\theme.stb</url>
       <mode>
          <ModeEntry name="Rollback" checked="false"/>
          <ModeEntry name="Secured" checked="false"/>
