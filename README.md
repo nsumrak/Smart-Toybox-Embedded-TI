@@ -15,7 +15,7 @@ How to build it
 ---------------
 We recommend using TI CCS edition that is freely available for cc3200 platform. Installation manual is available with cc3200 evaluation board used as platform
 for hardware and it is assumed that you already installed and configured CCS
-for cc3200. You will also need TI's Uniflash tool.
+for cc3200. You will also need [TI's Uniflash tool](http://www.ti.com/tool/uniflash).
 
 1.  Create new CCS empty project named smarttoybox. Select target cc3200.
 2.  Clone repo into created project folder.
@@ -29,7 +29,9 @@ for cc3200. You will also need TI's Uniflash tool.
     deploy directory.
 6.  On the first run, you will have to calibrate your weight sensor.
     Prepare 1.5l bottle of water or similar weight. Run the project and follow console output. When instructed put bottle (weight) on the plate atteched
-    to the sensor.
+    to the sensor. After calibration is complete copy calibration settings
+    from the console, remove the weight and system will write the settings to
+    the flash and reboot in normal mode.
 7.  Edit settings.ini file in deploy/uniflash_config_session/fileSystem directory
     with data gathered in calibration so you can flash the board with calibrated data and ommit calibration. If you want to rerun calibration just delete settings.ini or set all the valuse to 0.
 8.  After testing your device you can remove SOP jumper from cc3200 board,
