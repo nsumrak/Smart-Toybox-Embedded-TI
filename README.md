@@ -26,7 +26,8 @@ for cc3200. You will also need [TI's Uniflash tool](http://www.ti.com/tool/unifl
 4.  (optional) customize theme using Theme Packer. You can find theme.stb file in
     deploy/uniflash_config_session/fileSystem directory.
 5.  Use TI's Uniflash tool to setup device using uniflash_config.usf file in
-    deploy directory.
+    deploy directory. Do not forget to put SOP2 jumper before flashing and to
+    remove it after flashing is done!
 6.  On the first run, you will have to calibrate your weight sensor.
     Prepare 1.5l bottle of water or similar weight. Run the project and follow console output. When instructed put bottle (weight) on the plate atteched
     to the sensor. After calibration is complete copy calibration settings
