@@ -9,7 +9,7 @@ This repository contains Smart Toybox embedded software for Smart Toybox prototy
 
 Requirements
 ------------
-This software require previously built hardware.
+This software require previously built hardware. Detailed instructions can be found [here on Instructables](https://www.instructables.com/id/Smart-Toybox-Kids-Will-Enjoy-Cleaning-up-the-Toys/). Please VOTE for us!
 
 How to build it
 ---------------
